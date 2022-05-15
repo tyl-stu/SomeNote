@@ -1,0 +1,70 @@
+%压缩感知重构算法测试
+% 压缩感知重构算法之正交匹配追踪(OMP)！！！！！！！！！！！！！！！！！！！！！！
+%%%% 恢复残差：ans = 3.0390 太大！！！！！！！！！！！！！！！！！
+clear all;close all;clc;
+
+% bit_seq1 = load('E:\研究生活\研-my_topic\两用户NOMA-OFDMA-SIM - 1\create_x');
+% seq = bit_seq1.x;
+% 
+% x = seq;
+% M = 52*4;%观测值个数
+% N = length(x);%信号x的长度
+% K = 52;%信号x的稀疏度
+
+N = 80;
+sig = [];
+for j=1:1:80
+%    K= floor(M/8);
+   K = 12;
+   x = zeros(N,1);
+   Index_K = randperm(N);
+   % x(Index_K(1:K)) = 5*randn(K,1);%x为K稀疏的，且位置是随机的
+   x(Index_K(1:K)) = 1;
+   sig = [sig,x];
+end
+
+for i = 0.3:0.1:0.5
+M = floor(N*i);
+% M=80;
+
+
+%% 利用KSVD生成稀疏基
+%fix the parameters  
+param.L =5;   % number of elements in each linear combination.  每个线性组合中的元素数。
+param.K =M; %number of dictionary elements  字典元素数 -- 稀疏基行列维度中小的那个维度的值
+param.numIteration = 40; % number of iteration to execute the K-SVD algorithm.  执行K-SVD算法的迭代次数
+param.errorFlag = 0; % decompose signals until a certain error is reached.   分解信号，直到达到一定的误差。
+                     %do not use fix number of coefficients.   不要使用固定数量的系数。
+%param.errorGoal = sigma;  
+param.preserveDCAtom = 0;  
+param.InitializationMethod ='DataElements';%initialization by the signals themselves  由信号本身初始化
+param.displayProgress = 1; % progress information is displyed.  显示进度信息。
+[Dictionary,output]= KSVD(sig,param);%Dictionary is N*param.K  
+
+% Psi = eye(N);%x本身是稀疏的，定义稀疏矩阵为单位阵x=Psi*theta
+Phi = randn(M,N);%测量矩阵为高斯矩阵
+A = Phi * Psi;%传感矩阵
+% y = Phi * x;%得到观测向量y
+s = inv(Psi)*x;
+y = A * s;
+
+%% 通过原信号与稀疏基检查稀疏信号是否稀疏  x = Psi*s
+s_beg = inv(Psi)*x;
+sum(s_beg~=0);
+
+%% 恢复重构信号x
+tic
+theta = CS_OMP(y,A,K);
+x_r = Psi * theta;% x=Psi * theta
+toc
+%% 绘图
+figure;
+plot(x_r,'k.-');%绘出x的恢复信号
+hold on;
+plot(x,'r');%绘出原信号x
+hold off;
+legend('Recovery','Original')
+fprintf('\n恢复残差：');
+norm(x_r-x)%恢复残差
+% [n1,r1] = biterr(x,round(x_r));
+end
